@@ -1,63 +1,72 @@
 import streamlit as st
+import math
 import pandas as pd
 
-st.set_page_config(page_title="Simulador de Metas RA", layout="wide")
+st.set_page_config(page_title="Calculadora RA", layout="centered")
 
-st.title("⚖️ Simulador de Cenários e Probabilidades")
-st.markdown("Insira os dados de **qualquer empresa ou período** para calcular a nota final e as projeções.")
+# Mantendo seu Estilo CSS
+st.markdown("""
+    <style>
+        .stApp { background-color: #1B2B1F; }
+        label { color: #ff69b4 !important; font-weight: bold; }
+        input { font-weight: bold; }
+        h1, h2, h3, p { color: white !important; font-weight: bold; }
+        .stButton>button { background-color: #3cba54; color: white; font-weight: bold; }
+    </style>
+""", unsafe_allow_html=True)
 
-# --- ENTRADA DE DADOS TOTALMENTE VARIÁVEL ---
-with st.sidebar:
-    st.header("📥 Dados de Entrada")
-    
-    # Campos numéricos abertos para qualquer valor
-    v_tot_rec = st.number_input("Total de Reclamações:", min_value=1, value=1000)
-    v_tot_resp = st.number_input("Total de Respondidas:", min_value=0, value=980)
-    
+st.title("Calculadora Reclame AQUI")
+
+def to_float(text):
+    try: return float(text.replace(',', '.'))
+    except: return 0.0
+
+# SUA FUNÇÃO ORIGINAL (Mantida para precisão total)
+def calcular_ar_e_ir(respostas, reclamacoes, notas, solucao, novos_negocios):
+    ir = (respostas / reclamacoes) * 100 if reclamacoes > 0 else 0
+    ar_score = ((ir * 2) + (notas * 10 * 3) + (solucao * 3) + (novos_negocios * 2)) / 100
+    return ar_score, ir
+
+with st.form("formulario_principal"):
+    total_reclamacoes = st.number_input("Total de reclamações", min_value=0, step=1, value=12774)
+    total_respostas = st.number_input("Total de respostas", min_value=0, step=1, value=12509)
+    media_notas_txt = st.text_input("Média das notas", value="6,94")
+    indice_solucao_txt = st.text_input("Índice de solução (%)", value="76,3")
+    indice_novos_negocios_txt = st.text_input("Índice de novos negócios (%)", value="74,1")
+    total_avaliacoes = st.number_input("Total de avaliações", min_value=0, step=1, value=6084)
+    submitted = st.form_submit_button("Calcular Atual e Simular")
+
+if submitted:
+    mn = to_float(media_notas_txt)
+    is_val = to_float(indice_solucao_txt)
+    inn = to_float(indice_novos_negocios_txt)
+
+    AR_atual, IR_atual = calcular_ar_e_ir(total_respostas, total_reclamacoes, mn, is_val, inn)
+    st.markdown(f"### Média Atual: **{AR_atual:.2f}**")
+
+    # --- NOVA PARTE: CÁLCULO DE CASAS DECIMAIS ---
     st.divider()
+    st.subheader("🎯 Projeção para Mudar a Média")
     
-    v_tot_av = st.number_input("Total de Avaliações (com nota):", min_value=1, value=500)
-    v_nc = st.number_input("Nota do Consumidor (0-10):", min_value=0.0, max_value=10.0, value=7.0, step=0.01)
-    v_is = st.number_input("Índice de Solução %:", min_value=0.0, max_value=100.0, value=80.0, step=0.1)
-    v_np = st.number_input("Voltaria a Negociar %:", min_value=0.0, max_value=100.0, value=70.0, step=0.1)
-
-# --- CÁLCULO DA NOTA ATUAL DO CENÁRIO ---
-# IR (Peso 3), IS (Peso 3), NC (Peso 2), NP (2)
-v_ir = (v_tot_resp / v_tot_rec) * 10
-v_ar = ((v_ir * 3) + (v_is/10 * 3) + (v_np/10 * 2) + (v_nc * 2)) / 10
-
-st.metric("Nota Final do Cenário Inserido", f"{v_ar:.2f}")
-
-# --- TABELA DE PROBABILIDADES (PROJEÇÃO FUTURA) ---
-st.divider()
-st.subheader("🎯 Projeção: E se chegarem novas avaliações?")
-qtd_novas = st.slider("Quantidade de novas notas para simular:", 1, 500, 50)
-
-dados_prob = []
-
-for n_teste in range(11):
-    novo_total_av = v_tot_av + qtd_novas
+    col1, col2 = st.columns(2)
     
-    # Simulação: Como a nova nota afeta a média
-    # Nova NC
-    sim_nc = ((v_nc * v_tot_av) + (n_teste * qtd_novas)) / novo_total_av
+    # 1. PARA SUBIR 0.1
+    alvo_subir = round(AR_atual + 0.1, 1)
+    # Cálculo: Quantos '10 perfeitos' (Nota 10, IS 100, INN 100)
+    # Uma nota 10 perfeita contribui com 10 pontos na média ponderada
+    n_subir = (total_avaliacoes * (alvo_subir - AR_atual)) / (10 - alvo_subir)
     
-    # Nova IS (Assume-se 'Resolvido' se nota >= 5)
-    res_novas = qtd_novas if n_teste >= 5 else 0
-    sim_is = ((v_is/100 * v_tot_av) + res_novas) / novo_total_av * 100
-    
-    # Nova NP (Assume-se 'Voltaria' se nota >= 7)
-    vol_novas = qtd_novas if n_teste >= 7 else 0
-    sim_np = ((v_np/100 * v_tot_av) + vol_novas) / novo_total_av * 100
-    
-    # Novo AR Final
-    sim_ar = ((v_ir * 3) + (sim_is/10 * 3) + (sim_np/10 * 2) + (sim_nc * 2)) / 10
-    impacto = sim_ar - v_ar
-    
-    dados_prob.append({
-        "Nota Recebida": n_teste,
-        "Nova Nota Final": round(sim_ar, 2),
-        "Efeito na Média": f"{impacto:+.3f}"
-    })
+    with col1:
+        st.success(f"Para subir para **{alvo_subir}**")
+        st.write(f"Você precisa de aproximadamente **{math.ceil(n_subir)}** avaliações '10 Perfeitas' (Nota 10 + Resolvido + Voltaria).")
 
-st.table(pd.DataFrame(dados_prob))
+    # 2. PARA CAIR 0.1
+    alvo_cair = round(AR_atual - 0.1, 1)
+    # Cálculo: Quantos '0 críticos' (Nota 0, IS 0, INN 0)
+    n_cair = (total_avaliacoes * (AR_atual - alvo_cair)) / (alvo_cair - (IR_atual * 2 / 100))
+    
+    with col2:
+        st.warning(f"Para cair para **{alvo_cair}**")
+        st.write(f"Sua margem é de **{math.floor(abs(n_cair))}** avaliações 'Zero Críticas' (Nota 0 + Não Resolvido + Não Voltaria).")
+
+    st.info("💡 Como sua base é grande (6.084 notas), pequenas mudanças exigem um volume alto de avaliações.")
