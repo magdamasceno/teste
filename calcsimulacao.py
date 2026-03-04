@@ -1,56 +1,55 @@
 import streamlit as st
-import pandas as pd
 
-st.set_page_config(page_title="Simulador de Metas GOLLOG", layout="wide")
+st.set_page_config(page_title="Calculadora Oficial RA", layout="wide")
 
-st.title("📊 Simulador de Probabilidades e Impacto")
-st.markdown("Ajuste os dados atuais e simule novos cenários para prever suas metas.")
+st.title("⚖️ Calculadora de Probabilidade Reclame Aqui")
+st.markdown("Cálculo baseado nos pesos oficiais: **IR(3), IS(3), NC(2), NP(2)**")
 
-# --- COLUNAS LATERAIS PARA DADOS ATUAIS ---
+# --- ENTRADA DE DADOS REAIS ---
 with st.sidebar:
-    st.header("📌 Dados Atuais")
-    total_atual = st.number_input("Total de Avaliações Atual:", min_value=1, value=100)
-    nota_atual = st.number_input("Nota do Consumidor Atual:", min_value=0.0, max_value=10.0, value=8.4, step=0.1)
+    st.header("📊 Dados Atuais do Painel")
+    reclamacoes_totais = st.number_input("Total de Reclamações Recebidas:", value=1000)
+    reclamacoes_respondidas = st.number_input("Total de Respondidas:", value=990)
     
-    # Porcentagens atuais (convertemos para decimal para o cálculo)
-    perc_resolvidos = st.slider("Índice de Solução Atual (%):", 0, 100, 85) / 100
-    perc_voltaria = st.slider("Voltaria a Negociar Atual (%):", 0, 100, 70) / 100
+    # Índices em %
+    is_perc = st.slider("Índice de Solução (IS) %:", 0, 100, 85) 
+    nc_valor = st.number_input("Nota do Consumidor (NC):", 0.0, 10.0, 7.8, step=0.1)
+    np_perc = st.slider("Voltaria a Fazer Negócio (NP) %:", 0, 100, 75)
 
-# --- CÁLCULO DE PROBABILIDADES (NOTA DO CONSUMIDOR) ---
-st.subheader("🎯 Probabilidades para Nota do Consumidor")
+# --- LÓGICA OFICIAL RECLAME AQUI ---
+# IR = Índice de Resposta | IS = Índice de Solução | NC = Nota Consumidor | NP = Índice de Novos Negócios
+ir = (reclamacoes_respondidas / reclamacoes_totais) * 10
+is_p = (is_perc / 10)
+np_p = (np_perc / 10)
 
-col1, col2 = st.columns(2)
+# Fórmula Ponderada
+nota_final_ra = ((nc_valor * 2) + (np_p * 2) + (is_p * 3) + (ir * 3)) / 10
 
-# Alvos de nota
-alvo_sobe = round(nota_atual + 0.1, 2)
-alvo_desce = round(nota_atual - 0.1, 2)
+st.subheader(f"Sua Nota Final RA Atual: {nota_final_ra:.2f}")
 
-# Cálculo Matemático
-# Para subir (precisamos de notas 10)
-n_10_sobe = (total_atual * (alvo_sobe - nota_atual)) / (10 - alvo_sobe)
-# Para cair (considerando o pior cenário: notas 0)
-n_0_cai = (total_atual * (nota_atual - alvo_desce)) / alvo_desce
-
-with col1:
-    st.success(f"**Para subir para {alvo_sobe}:**")
-    st.metric("Notas 10 necessárias", f"{int(n_10_sobe) + 1}")
-
-with col2:
-    st.warning(f"**Para cair para {alvo_desce}:**")
-    st.metric("Notas 0 suportadas", f"{int(n_0_cai)}")
-
+# --- SIMULADOR DE METAS ---
 st.divider()
+st.subheader("🎯 O que eu preciso para chegar em tal nota?")
+alvo = st.number_input("Qual nota final você quer atingir? (Ex: 8.0)", value=8.0, step=0.1)
 
-# --- SIMULADOR DE CENÁRIO FUTURO (IMPACTO NAS 3 MÉTRICAS) ---
-st.subheader("🧪 Simular Recebimento de Novas Notas")
-st.write("Se você receber um novo lote de notas agora, como ficarão seus índices?")
+# Simulação simplificada: Quantas avaliações "Perfeitas" (Nota 10, Resolvida, Voltaria)
+# Para simplificar a probabilidade para o usuário:
+if alvo > nota_final_ra:
+    # Estimativa de esforço necessário em novas avaliações nota 10/Sim/Sim
+    diferenca = alvo - nota_final_ra
+    esforco_estimado = (diferenca * reclamacoes_totais) / (10 - alvo)
+    st.success(f"📈 Para chegar na nota **{alvo}**, você precisa de aproximadamente **{int(esforco_estimado) + 1}** avaliações PERFEITAS (Nota 10 + Solucionada + Voltaria).")
+else:
+    # Estimativa de queda (Notas 0/Não/Não)
+    margem = nota_final_ra - alvo
+    queda_suportada = (margem * reclamacoes_totais) / alvo
+    st.warning(f"📉 Você aguenta aproximadamente **{int(queda_suportada)}** avaliações CRÍTICAS (Nota 0 + Não Resolvida + Não Voltaria) antes de cair para **{alvo}**.")
 
-c1, c2, c3, c4 = st.columns(4)
-novas_qtd = c1.number_input("Qtd de novas notas:", min_value=0, value=10)
-nova_nota_valor = c2.selectbox("Qual nota elas terão?", list(range(11)), index=10)
-nova_sol_sim = c3.checkbox("Essas notas foram 'Resolvidas'?")
-nova_vol_sim = c4.checkbox("Essas notas 'Voltariam'?")
-
-# Cálculos do Cenário Futuro
-novo
-
+# --- EXPLICAÇÃO DOS PESOS ---
+with st.expander("📝 Entenda como o Reclame Aqui te avalia"):
+    st.write("""
+    1. **Índice de Resposta (Peso 3):** Porcentagem de reclamações respondidas.
+    2. **Índice de Solução (Peso 3):** Porcentagem de reclamações resolvidas (baseado no 'SIM' do consumidor).
+    3. **Nota do Consumidor (Peso 2):** Média das notas de 0 a 10.
+    4. **Voltaria a Fazer Negócio (Peso 2):** Porcentagem de consumidores que dizem que voltariam a negociar.
+    """)
