@@ -1,61 +1,156 @@
 import streamlit as st
-import pandas as pd
+import math
 
-st.set_page_config(page_title="Calculadora RA Smiles", layout="wide")
+st.set_page_config(page_title="Calculadora RA", layout="centered")
 
-st.title("⚖️ Calculadora de Probabilidades Reclame Aqui")
-st.markdown("Simulação baseada na fórmula oficial: **((IR*3) + (IS*3) + (NP*2) + (NC*2)) / 10**")
+# Estilo CSS customizado
+st.markdown(
+    """
+    <style>
+        body {
+            background-color: #1B2B1F;
+            color: white;
+        }
+        .stApp {
+            background-color: #1B2B1F;
+        }
+        .stTextInput label, .stNumberInput label {
+            color: #ff69b4 !important;
+            font-weight: bold;
+        }
+        input[type="number"], input[type="text"] {
+            color: black !important;
+            font-weight: bold;
+        }
+        h1, h2, h3 {
+            color: white !important;
+            font-weight: bold;
+        }
+        .stButton>button {
+            background-color: #3cba54;
+            color: white;
+            font-weight: bold;
+        }
+        .stAlert {
+            font-weight: bold;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
-# --- ENTRADA DE DADOS EXATOS DO SEU PAINEL ---
-with st.sidebar:
-    st.header("📊 Dados Atuais")
-    # Base Reclamações (IR)
-    tot_rec = st.number_input("Total de Reclamações:", value=12774)
-    tot_resp = st.number_input("Reclamações Respondidas:", value=12509)
-    st.divider()
-    # Base Avaliações (IS, NP, NC)
-    tot_av = st.number_input("Total de Avaliações (Ouro):", value=6084)
-    nc_atual = st.number_input("Nota do Consumidor Atual:", value=6.94)
-    is_atual = st.number_input("Índice de Solução Atual (%):", value=76.3)
-    np_atual = st.number_input("Voltaria a Negociar Atual (%):", value=74.1)
+st.title("Calculadora Reclame AQUI")
 
-# --- CÁLCULO DA NOTA REAL AGORA ---
-ir = (tot_resp / tot_rec) * 10
-nota_ra_atual = ((ir * 3) + (is_atual/10 * 3) + (np_atual/10 * 2) + (nc_atual * 2)) / 10
+def to_float(text):
+    try:
+        return float(text.replace(',', '.'))
+    except:
+        return 0.0
 
-st.metric("Sua Nota Final Atual", f"{nota_ra_atual:.2f}")
+def calcular_ar_e_ir(respostas, reclamacoes, notas, solucao, novos_negocios):
+    ir = (respostas / reclamacoes) * 100 if reclamacoes > 0 else 0
+    ar_score = ((ir * 2) + (notas * 10 * 3) + (solucao * 3) + (novos_negocios * 2)) / 100
+    return ar_score, ir
 
-# --- TABELA DE TODAS AS POSSIBILIDADES ---
-st.subheader("🎯 Simulador de Impacto por Nota")
-st.write("Se você receber **100 novas avaliações** com a mesma nota, como fica seu painel?")
+def estimar_avaliacoes_para_cair_bom(ar_atual):
+    if ar_atual <= 7.0:
+        return 0
+    num_avaliacoes_negativas = (533 / 1.4) * (ar_atual - 7.0)
+    return math.ceil(num_avaliacoes_negativas) if num_avaliacoes_negativas > 0 else 0
 
-simulacoes = []
+def estimar_para_ra1000(total_avaliacoes_atual, is_atual_percent, ir_atual_percent, total_reclamacoes, total_respostas_atual, mn_atual, inn_atual_percent):
+    meta_ir = 90.0
+    meta_is = 90.0
+    meta_mn = 7.0
+    meta_inn = 70.0
+    meta_ta = 50.0
 
-for nota_teste in range(11): # Testa de 0 a 10
-    novo_tot_av = tot_av + 100
-    
-    # Nova Nota Consumidor
-    nova_nc = ((nc_atual * tot_av) + (nota_teste * 100)) / novo_tot_av
-    
-    # Novo Índice de Solução (Considerando que nota >= 5 é Resolvido)
-    resolvido = 100 if nota_teste >= 5 else 0
-    nova_is = ((is_atual/100 * tot_av) + resolvido) / novo_tot_av * 100
-    
-    # Novo Voltaria a Negociar (Considerando que nota >= 7 é Voltaria)
-    voltaria = 100 if nota_teste >= 7 else 0
-    nova_np = ((np_atual/100 * tot_av) + voltaria) / novo_tot_av * 100
-    
-    # Cálculo Final com Pesos
-    nova_final = ((ir * 3) + (nova_is/10 * 3) + (nova_np/10 * 2) + (nova_nc * 2)) / 10
-    diff = nova_final - nota_ra_atual
-    
-    simulacoes.append({
-        "Nota Recebida": nota_teste,
-        "Nova Nota Final": round(nova_final, 2),
-        "Impacto": f"{diff:+.3f}"
-    })
+    respostas_necessarias = 0
+    if ir_atual_percent < meta_ir and total_reclamacoes > 0:
+        respostas_necessarias = math.ceil((meta_ir / 100 * total_reclamacoes) - total_respostas_atual)
+        respostas_necessarias = max(0, respostas_necessarias)
 
-df_sim = pd.DataFrame(simulacoes)
-st.table(df_sim)
+    avaliacoes_para_is = 0
+    if is_atual_percent < meta_is and total_avaliacoes_atual > 0:
+        num_resolvidas_atuais = total_avaliacoes_atual * (is_atual_percent / 100)
+        if (1 - meta_is / 100) == 0:
+            avaliacoes_para_is = float('inf') if num_resolvidas_atuais < total_avaliacoes_atual else 0
+        else:
+            avaliacoes_para_is = ((meta_is / 100 * total_avaliacoes_atual) - num_resolvidas_atuais) / (1 - meta_is / 100)
+        avaliacoes_para_is = math.ceil(avaliacoes_para_is)
+        avaliacoes_para_is = max(0, avaliacoes_para_is)
+    elif is_atual_percent < meta_is and total_avaliacoes_atual == 0:
+        if is_atual_percent < meta_is:
+             avaliacoes_para_is = meta_ta
 
-st.warning("⚠️ Nota: O simulador acima assume que notas baixas (0-4) vêm acompanhadas de 'Não Resolvido' e 'Não Voltaria', conforme o comportamento padrão do consumidor.")
+    avaliacoes_positivas_final = avaliacoes_para_is
+    ta_final_estimado = total_avaliacoes_atual + avaliacoes_positivas_final
+
+    todos_criterios_met = (
+        ir_atual_percent >= meta_ir or respostas_necessarias == 0
+    ) and (
+        is_atual_percent >= meta_is or avaliacoes_positivas_final == 0
+    ) and (
+        mn_atual >= meta_mn
+    ) and (
+        inn_atual_percent >= meta_inn
+    ) and (
+        ta_final_estimado >= meta_ta
+    )
+
+    if todos_criterios_met and avaliacoes_positivas_final == 0 and respostas_necessarias == 0:
+         return 0, 0
+
+    return avaliacoes_positivas_final, respostas_necessarias
+
+with st.form("formulario_similar"):
+    total_reclamacoes = st.number_input("Total de reclamações", min_value=0, step=1)
+    total_respostas = st.number_input("Total de respostas", min_value=0, step=1)
+    media_notas_txt = st.text_input("Média das notas", placeholder="Ex: 7,38")
+    indice_solucao_txt = st.text_input("Índice de solução (%)", placeholder="Ex: 86,1")
+    indice_novos_negocios_txt = st.text_input("Índice de novos negócios (%)", placeholder="Ex: 80,5")
+    total_avaliacoes = st.number_input("Total de avaliações", min_value=0, step=1)
+    submitted = st.form_submit_button("Calcular Avaliação")
+
+if submitted:
+    media_notas_val = to_float(media_notas_txt)
+    indice_solucao_val = to_float(indice_solucao_txt)
+    indice_novos_negocios_val = to_float(indice_novos_negocios_txt)
+
+    if total_reclamacoes == 0 :
+        st.warning("Por favor, Total de Reclamações deve ser maior que zero.")
+    else:
+        # --- NOVO BLOCO: TABELA DE PROBABILIDADES ---
+        st.divider()
+        st.subheader("🎯 Tabela de Probabilidades")
+        st.write("Se você receber as próximas **50 avaliações** com a mesma nota, veja o impacto no seu AR:")
+
+        probabilidades = []
+        base_novas = 50 # Quantidade de notas para simular impacto
+
+        for nota_teste in range(11):
+            # 1. Simular nova Média das Notas (MN)
+            nova_mn = ((media_notas_val * total_avaliacoes) + (nota_teste * base_novas)) / (total_avaliacoes + base_novas)
+            
+            # 2. Simular Novos Índices (IS e INN) 
+            # Assumimos que notas >= 5 são resolvidas e >= 7 voltariam a fazer negócio
+            resolvido = base_novas if nota_teste >= 5 else 0
+            novo_is = ((indice_solucao_val / 100 * total_avaliacoes) + resolvido) / (total_avaliacoes + base_novas) * 100
+            
+            voltaria = base_novas if nota_teste >= 7 else 0
+            novo_inn = ((indice_novos_negocios_val / 100 * total_avaliacoes) + voltaria) / (total_avaliacoes + base_novas) * 100
+            
+            # 3. Calcular Novo AR usando SUA fórmula
+            novo_ar, _ = calcular_ar_e_ir(total_respostas, total_reclamacoes, nova_mn, novo_is, novo_inn)
+            
+            diff = novo_ar - AR_calculado
+            cor = "🟢" if diff > 0 else "🔴" if diff < 0 else "⚪"
+            
+            probabilidades.append({
+                "Nota Recebida": nota_teste,
+                "Novo AR": f"{novo_ar:.2f}",
+                "Evolução": f"{cor} {diff:+.2f}"
+            })
+
+        st.table(probabilidades)
+        st.caption(f"Simulação baseada em um lote de {base_novas} novas avaliações.")
