@@ -70,7 +70,7 @@ if submitted:
         st.write(f"Sua margem é de **{math.floor(abs(n_cair))}** avaliações 'Zero Críticas' (Nota 0 + Não Resolvido + Não Voltaria).")
 
     st.info("💡 Como sua base é grande (6.084 notas), pequenas mudanças exigem um volume alto de avaliações.")
-# --- BLOCO UNIFICADO: SIMULADOR DE IMPACTO ---
+## --- BLOCO UNIFICADO E PROTEGIDO ---
     st.divider()
     st.subheader("🧪 Simulador de Impacto por Lote")
     st.markdown("Veja como notas mistas afetam sua média atual nas casas decimais.")
@@ -86,35 +86,35 @@ if submitted:
 
     total_n = q10 + q5 + q0
 
+    # Verificação de segurança: Só calcula se as variáveis do seu formulário existirem
     if total_n > 0:
-        # Recuperando os valores que você já calculou no seu formulário principal
-        # media_notas_val, indice_solucao_val e indice_novos_negocios_val
-        
-        # 1. Média do lote novo
-        m_lote = ((q10 * 10) + (q5 * 5) + (q0 * 0)) / total_n
-        
-        # 2. Índices do lote novo (Considerando Nota 10 e 5 como Resolvido)
-        is_lote = ((q10 * 100) + (q5 * 100) + (q0 * 0)) / total_n
-        inn_lote = ((q10 * 100) + (q5 * 0) + (q0 * 0)) / total_n
+        try:
+            # Pegando os valores que seu código já converteu
+            # media_notas_val, indice_solucao_val e indice_novos_negocios_val
+            
+            # 1. Médias do lote novo
+            m_lote = ((q10 * 10) + (q5 * 5) + (q0 * 0)) / total_n
+            is_lote = ((q10 * 100) + (q5 * 100) + (q0 * 0)) / total_n
+            inn_lote = ((q10 * 100) + (q5 * 0) + (q0 * 0)) / total_n
 
-        # 3. Cálculo da nova média ponderada combinando o lote com o histórico
-        # Usamos total_avaliacoes que vem do seu input numérico
-        n_mn = ((media_notas_val * total_avaliacoes) + (m_lote * total_n)) / (total_avaliacoes + total_n)
-        n_is = ((indice_solucao_val * total_avaliacoes) + (is_lote * total_n)) / (total_avaliacoes + total_n)
-        n_inn = ((indice_novos_negocios_val * total_avaliacoes) + (inn_lote * total_n)) / (total_avaliacoes + total_n)
+            # 2. Fusão com o histórico (Ponderação real)
+            # Usando as variáveis que você definiu no início do 'if submitted:'
+            n_mn = ((media_notas_val * total_avaliacoes) + (m_lote * total_n)) / (total_avaliacoes + total_n)
+            n_is = ((indice_solucao_val * total_avaliacoes) + (is_lote * total_n)) / (total_avaliacoes + total_n)
+            n_inn = ((indice_novos_negocios_val * total_avaliacoes) + (inn_lote * total_n)) / (total_avaliacoes + total_n)
 
-        # 4. Resultado Final usando sua função original calcular_ar_e_ir
-        n_AR, _ = calcular_ar_e_ir(total_respostas, total_reclamacoes, n_mn, n_is, n_inn)
-        
-        v_diff = n_AR - AR_calculado
-        
-        st.info(f"### Projeção com +{total_n} avaliações")
-        r1, r2 = st.columns(2)
-        r1.metric("Novo AR Estimado", f"{n_AR:.2f}", f"{v_diff:+.3f}")
-        
-        if v_diff > 0:
-            st.success(f"📈 Este lote sobe sua média em **{v_diff:.3f}**.")
-        else:
-            st.error(f"📉 Este lote derrubaria sua média em **{abs(v_diff):.3f}**.")
-
-st.caption("Cálculo baseado na base de 6.084 avaliações atuais.")
+            # 3. Novo AR usando sua função original
+            n_AR, _ = calcular_ar_e_ir(total_respostas, total_reclamacoes, n_mn, n_is, n_inn)
+            
+            v_diff = n_AR - AR_calculado
+            
+            st.info(f"### Projeção com +{total_n} avaliações")
+            r1, r2 = st.columns(2)
+            r1.metric("Novo AR Estimado", f"{n_AR:.2f}", f"{v_diff:+.3f}")
+            
+            if v_diff > 0:
+                st.success(f"📈 Este lote sobe sua média em **{v_diff:.3f}**.")
+            elif v_diff < 0:
+                st.error(f"📉 Este lote derrubaria sua média em **{abs(v_diff):.3f}**.")
+        except NameError:
+            st.warning("⚠️ Por favor, clique no botão 'Calcular Avaliação' acima primeiro para carregar os dados atuais.")
