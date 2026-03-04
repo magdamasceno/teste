@@ -1,43 +1,61 @@
 import streamlit as st
+import pandas as pd
 
-st.set_page_config(page_title="Calculadora Real RA", layout="wide")
+st.set_page_config(page_title="Calculadora RA Smiles", layout="wide")
 
-st.title("⚖️ Calculadora de Precisão Reclame Aqui")
-st.markdown("Cálculo exato baseado na fórmula: **((IR*3) + (IS*3) + (NP*2) + (NC*2)) / 10**")
+st.title("⚖️ Calculadora de Probabilidades Reclame Aqui")
+st.markdown("Simulação baseada na fórmula oficial: **((IR*3) + (IS*3) + (NP*2) + (NC*2)) / 10**")
 
-# --- ENTRADA DE DADOS DO SEU PRINT ---
+# --- ENTRADA DE DADOS EXATOS DO SEU PAINEL ---
 with st.sidebar:
-    st.header("📊 Dados Reais do Painel")
-    # Base Reclamações
-    total_rec = st.number_input("Reclamações Totais (Ex: 12774):", value=12774)
-    total_resp = st.number_input("Respondidas (Ex: 12509):", value=12509)
-    
+    st.header("📊 Dados Atuais")
+    # Base Reclamações (IR)
+    tot_rec = st.number_input("Total de Reclamações:", value=12774)
+    tot_resp = st.number_input("Reclamações Respondidas:", value=12509)
     st.divider()
-    # Índices em % (Digite exatamente o que está nos círculos verdes)
-    is_perc = st.number_input("Índice de Solução % (Ex: 76.3):", value=76.3)
-    np_perc = st.number_input("Voltaria a Negociar % (Ex: 74.1):", value=74.1)
-    nc_valor = st.number_input("Nota do Consumidor (Ex: 6.94):", value=6.94)
+    # Base Avaliações (IS, NP, NC)
+    tot_av = st.number_input("Total de Avaliações (Ouro):", value=6084)
+    nc_atual = st.number_input("Nota do Consumidor Atual:", value=6.94)
+    is_atual = st.number_input("Índice de Solução Atual (%):", value=76.3)
+    np_atual = st.number_input("Voltaria a Negociar Atual (%):", value=74.1)
 
-# --- CÁLCULO PONDERADO ---
-# Transformamos as porcentagens em notas de 0 a 10 para a fórmula
-ir = (total_resp / total_rec) * 10
-is_nota = is_perc / 10
-np_nota = np_perc / 10
-nc_nota = nc_valor
+# --- CÁLCULO DA NOTA REAL AGORA ---
+ir = (tot_resp / tot_rec) * 10
+nota_ra_atual = ((ir * 3) + (is_atual/10 * 3) + (np_atual/10 * 2) + (nc_atual * 2)) / 10
 
-# Aplicação dos Pesos
-soma_pesos = (ir * 3) + (is_nota * 3) + (np_nota * 2) + (nc_nota * 2)
-nota_final_calculada = soma_pesos / 10
+st.metric("Sua Nota Final Atual", f"{nota_ra_atual:.2f}")
 
-# --- EXIBIÇÃO ---
-st.subheader("📊 Resultado Final")
-col1, col2 = st.columns(2)
+# --- TABELA DE TODAS AS POSSIBILIDADES ---
+st.subheader("🎯 Simulador de Impacto por Nota")
+st.write("Se você receber **100 novas avaliações** com a mesma nota, como fica seu painel?")
 
-with col1:
-    st.metric("Nota Final Calculada", f"{nota_final_calculada:.2f}")
-    if nota_final_calculada < 8:
-        st.error("Selo Atual: BOM (Abaixo de 8.0)")
-    else:
-        st.success("Selo Atual: ÓTIMO")
+simulacoes = []
 
-with col2:
+for nota_teste in range(11): # Testa de 0 a 10
+    novo_tot_av = tot_av + 100
+    
+    # Nova Nota Consumidor
+    nova_nc = ((nc_atual * tot_av) + (nota_teste * 100)) / novo_tot_av
+    
+    # Novo Índice de Solução (Considerando que nota >= 5 é Resolvido)
+    resolvido = 100 if nota_teste >= 5 else 0
+    nova_is = ((is_atual/100 * tot_av) + resolvido) / novo_tot_av * 100
+    
+    # Novo Voltaria a Negociar (Considerando que nota >= 7 é Voltaria)
+    voltaria = 100 if nota_teste >= 7 else 0
+    nova_np = ((np_atual/100 * tot_av) + voltaria) / novo_tot_av * 100
+    
+    # Cálculo Final com Pesos
+    nova_final = ((ir * 3) + (nova_is/10 * 3) + (nova_np/10 * 2) + (nova_nc * 2)) / 10
+    diff = nova_final - nota_ra_atual
+    
+    simulacoes.append({
+        "Nota Recebida": nota_teste,
+        "Nova Nota Final": round(nova_final, 2),
+        "Impacto": f"{diff:+.3f}"
+    })
+
+df_sim = pd.DataFrame(simulacoes)
+st.table(df_sim)
+
+st.warning("⚠️ Nota: O simulador acima assume que notas baixas (0-4) vêm acompanhadas de 'Não Resolvido' e 'Não Voltaria', conforme o comportamento padrão do consumidor.")
