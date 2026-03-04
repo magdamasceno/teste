@@ -1,55 +1,68 @@
 import streamlit as st
 
-st.set_page_config(page_title="Calculadora Oficial RA", layout="wide")
+st.set_page_config(page_title="Calculadora RA Smiles", layout="wide")
 
-st.title("⚖️ Calculadora de Probabilidade Reclame Aqui")
-st.markdown("Cálculo baseado nos pesos oficiais: **IR(3), IS(3), NC(2), NP(2)**")
+st.title("⚖️ Calculadora de Precisão Reclame Aqui")
+st.info("💡 Para bater com os 7.8 do seu painel, use apenas os dados do período atual (6 ou 12 meses).")
 
-# --- ENTRADA DE DADOS REAIS ---
+# --- ENTRADA DE DADOS EXATOS ---
 with st.sidebar:
-    st.header("📊 Dados Atuais do Painel")
-    reclamacoes_totais = st.number_input("Total de Reclamações Recebidas:", value=1000)
-    reclamacoes_respondidas = st.number_input("Total de Respondidas:", value=990)
+    st.header("📊 Dados do Painel")
     
-    # Índices em %
-    is_perc = st.slider("Índice de Solução (IS) %:", 0, 100, 85) 
-    nc_valor = st.number_input("Nota do Consumidor (NC):", 0.0, 10.0, 7.8, step=0.1)
-    np_perc = st.slider("Voltaria a Fazer Negócio (NP) %:", 0, 100, 75)
+    # Base Reclamações (Usada para o Índice de Resposta)
+    tot_rec = st.number_input("Total de Reclamações do Período:", value=12774)
+    tot_resp = st.number_input("Reclamações Respondidas:", value=12509)
+    
+    st.divider()
+    
+    # Base Avaliações (Ouro: Onde a nota do consumidor nasce)
+    tot_av = st.number_input("Total de Avaliações (Com nota):", value=6084)
+    
+    # Índices exatos (Digite exatamente o que aparece no círculo verde)
+    nc_atual = st.number_input("Nota do Consumidor (Ex: 6.94):", value=6.94, step=0.01)
+    is_atual = st.number_input("Índice de Solução % (Ex: 76.3):", value=76.3, step=0.1)
+    np_atual = st.number_input("Voltaria a Negociar % (Ex: 74.1):", value=74.1, step=0.1)
 
-# --- LÓGICA OFICIAL RECLAME AQUI ---
-# IR = Índice de Resposta | IS = Índice de Solução | NC = Nota Consumidor | NP = Índice de Novos Negócios
-ir = (reclamacoes_respondidas / reclamacoes_totais) * 10
-is_p = (is_perc / 10)
-np_p = (np_perc / 10)
+# --- FÓRMULA OFICIAL DO RECLAME AQUI ---
+# 1. Índice de Resposta (Peso 3)
+ir = (tot_resp / tot_rec) * 10
+# 2. Índice de Solução (Peso 3)
+is_p = is_atual / 10
+# 3. Voltaria a Fazer Negócio (Peso 2)
+np_p = np_atual / 10
+# 4. Nota do Consumidor (Peso 2)
+nc_p = nc_atual
 
-# Fórmula Ponderada
-nota_final_ra = ((nc_valor * 2) + (np_p * 2) + (is_p * 3) + (ir * 3)) / 10
+# Cálculo Final Ponderado
+nota_ra = ((ir * 3) + (is_p * 3) + (np_p * 2) + (nc_p * 2)) / 10
 
-st.subheader(f"Sua Nota Final RA Atual: {nota_final_ra:.2f}")
+# --- EXIBIÇÃO ---
+st.subheader("📊 Resultado do Período")
+c1, c2 = st.columns(2)
 
-# --- SIMULADOR DE METAS ---
+c1.metric("Nota Final Calculada", f"{nota_ra:.2f}")
+c2.write(f"""
+**Pesos Aplicados:**
+* Índice de Resposta: {ir:.2f} (Peso 3)
+* Índice de Solução: {is_p:.2f} (Peso 3)
+* Voltaria a Negociar: {np_p:.2f} (Peso 2)
+* Nota do Consumidor: {nc_p:.2f} (Peso 2)
+""")
+
+# --- SIMULADOR DE PROBABILIDADE ---
 st.divider()
-st.subheader("🎯 O que eu preciso para chegar em tal nota?")
-alvo = st.number_input("Qual nota final você quer atingir? (Ex: 8.0)", value=8.0, step=0.1)
+st.subheader("🎯 O que falta para subir?")
 
-# Simulação simplificada: Quantas avaliações "Perfeitas" (Nota 10, Resolvida, Voltaria)
-# Para simplificar a probabilidade para o usuário:
-if alvo > nota_final_ra:
-    # Estimativa de esforço necessário em novas avaliações nota 10/Sim/Sim
-    diferenca = alvo - nota_final_ra
-    esforco_estimado = (diferenca * reclamacoes_totais) / (10 - alvo)
-    st.success(f"📈 Para chegar na nota **{alvo}**, você precisa de aproximadamente **{int(esforco_estimado) + 1}** avaliações PERFEITAS (Nota 10 + Solucionada + Voltaria).")
+meta = st.number_input("Qual nota final você deseja atingir? (Ex: 8.0)", value=8.0, step=0.1)
+
+if meta > nota_ra:
+    # Cálculo de quantas avaliações "Perfeitas" (Nota 10, Sim, Sim) são necessárias
+    # A fórmula considera o 'peso' que cada avaliação nova tem sobre a base atual de 6.084
+    diff = meta - nota_ra
+    # Impacto de uma nota 10/Sim/Sim na média final
+    impacto_nota_10 = ((10*2 + 10*3 + 10*2 + ir*3)/10) - meta
+    necessarias = (diff * tot_av) / impacto_nota_10
+    
+    st.success(f"📈 Para chegar em **{meta}**, você precisa de aproximadamente **{int(necessarias) + 1}** avaliações 'Perfeitas' (Nota 10 + Solucionada + Voltaria).")
 else:
-    # Estimativa de queda (Notas 0/Não/Não)
-    margem = nota_final_ra - alvo
-    queda_suportada = (margem * reclamacoes_totais) / alvo
-    st.warning(f"📉 Você aguenta aproximadamente **{int(queda_suportada)}** avaliações CRÍTICAS (Nota 0 + Não Resolvida + Não Voltaria) antes de cair para **{alvo}**.")
-
-# --- EXPLICAÇÃO DOS PESOS ---
-with st.expander("📝 Entenda como o Reclame Aqui te avalia"):
-    st.write("""
-    1. **Índice de Resposta (Peso 3):** Porcentagem de reclamações respondidas.
-    2. **Índice de Solução (Peso 3):** Porcentagem de reclamações resolvidas (baseado no 'SIM' do consumidor).
-    3. **Nota do Consumidor (Peso 2):** Média das notas de 0 a 10.
-    4. **Voltaria a Fazer Negócio (Peso 2):** Porcentagem de consumidores que dizem que voltariam a negociar.
-    """)
+    st.warning("Meta já atingida.")
