@@ -70,52 +70,51 @@ if submitted:
         st.write(f"Sua margem é de **{math.floor(abs(n_cair))}** avaliações 'Zero Críticas' (Nota 0 + Não Resolvido + Não Voltaria).")
 
     st.info("💡 Como sua base é grande (6.084 notas), pequenas mudanças exigem um volume alto de avaliações.")
-# --- ADICIONE A PARTIR DAQUI AO FINAL DO SEU ARQUIVO ---
-# --- BLOCO NOVO: SIMULADOR DE CASAS DECIMAIS VARIADAS ---
+# --- BLOCO UNIFICADO: SIMULADOR DE IMPACTO ---
     st.divider()
     st.subheader("🧪 Simulador de Impacto por Lote")
     st.markdown("Veja como notas mistas afetam sua média atual nas casas decimais.")
 
-    # Criando colunas para entrada de dados
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        q_10 = st.number_input("Qtd de Notas 10 (Excelentes):", min_value=0, value=100, step=10)
-    with c2:
-        q_5 = st.number_input("Qtd de Notas 5 (Médias):", min_value=0, value=20, step=10)
-    with c3:
-        q_0 = st.number_input("Qtd de Notas 0 (Ruins):", min_value=0, value=5, step=5)
+    # Entradas de dados do lote simulado
+    col_sim1, col_sim2, col_sim3 = st.columns(3)
+    with col_sim1:
+        q10 = st.number_input("Qtd de Notas 10:", min_value=0, value=100, step=10, key="sim_q10")
+    with col_sim2:
+        q5 = st.number_input("Qtd de Notas 5:", min_value=0, value=20, step=10, key="sim_q5")
+    with col_sim3:
+        q0 = st.number_input("Qtd de Notas 0:", min_value=0, value=5, step=5, key="sim_q0")
 
-    total_novas = q_10 + q_5 + q_0
+    total_n = q10 + q5 + q0
 
-    if total_novas > 0:
-        # 1. Média das notas do novo lote
-        media_lote = ((q_10 * 10) + (q_5 * 5) + (q_0 * 0)) / total_novas
+    if total_n > 0:
+        # Recuperando os valores que você já calculou no seu formulário principal
+        # media_notas_val, indice_solucao_val e indice_novos_negocios_val
         
-        # 2. Comportamento para Índices (Baseado na sua lógica de sucesso)
-        # Nota 10 = Resolvido/Voltaria | Nota 5 = Resolvido/Não | Nota 0 = Não/Não
-        is_lote = ((q_10 * 100) + (q_5 * 100) + (q_0 * 0)) / total_novas
-        inn_lote = ((q_10 * 100) + (q_5 * 0) + (q_0 * 0)) / total_novas
+        # 1. Média do lote novo
+        m_lote = ((q10 * 10) + (q5 * 5) + (q0 * 0)) / total_n
+        
+        # 2. Índices do lote novo (Considerando Nota 10 e 5 como Resolvido)
+        is_lote = ((q10 * 100) + (q5 * 100) + (q0 * 0)) / total_n
+        inn_lote = ((q10 * 100) + (q5 * 0) + (q0 * 0)) / total_n
 
-        # 3. Cálculo Ponderado com a sua base de 6.084 avaliações
-        # Usando as variáveis exatas do seu código: media_notas_val, indice_solucao_val, etc.
-        nova_mn = ((media_notas_val * total_avaliacoes) + (media_lote * total_novas)) / (total_avaliacoes + total_novas)
-        nova_is = ((indice_solucao_val * total_avaliacoes) + (is_lote * total_novas)) / (total_avaliacoes + total_novas)
-        nova_inn = ((indice_novos_negocios_val * total_avaliacoes) + (inn_lote * total_novas)) / (total_avaliacoes + total_novas)
+        # 3. Cálculo da nova média ponderada combinando o lote com o histórico
+        # Usamos total_avaliacoes que vem do seu input numérico
+        n_mn = ((media_notas_val * total_avaliacoes) + (m_lote * total_n)) / (total_avaliacoes + total_n)
+        n_is = ((indice_solucao_val * total_avaliacoes) + (is_lote * total_n)) / (total_avaliacoes + total_n)
+        n_inn = ((indice_novos_negocios_val * total_avaliacoes) + (inn_lote * total_n)) / (total_avaliacoes + total_n)
 
-        # 4. Calculando o Novo AR com a sua função oficial
-        novo_AR, _ = calcular_ar_e_ir(total_respostas, total_reclamacoes, nova_mn, nova_is, nova_inn)
+        # 4. Resultado Final usando sua função original calcular_ar_e_ir
+        n_AR, _ = calcular_ar_e_ir(total_respostas, total_reclamacoes, n_mn, n_is, n_inn)
         
-        # 5. Exibição da Variação Decimal
-        variacao = novo_AR - AR_calculado
+        v_diff = n_AR - AR_calculado
         
-        st.info(f"### Projeção com +{total_novas} avaliações")
-        col_res1, col_res2 = st.columns(2)
-        col_res1.metric("Novo AR Estimado", f"{novo_AR:.2f}", f"{variacao:+.3f}")
+        st.info(f"### Projeção com +{total_n} avaliações")
+        r1, r2 = st.columns(2)
+        r1.metric("Novo AR Estimado", f"{n_AR:.2f}", f"{v_diff:+.3f}")
         
-        if variacao > 0:
-            st.success(f"📈 Este lote de notas sobe sua média em **{variacao:.3f}**. Faltam {(0.1 - variacao):.3f} para subir uma casa decimal inteira (0.1).")
+        if v_diff > 0:
+            st.success(f"📈 Este lote sobe sua média em **{v_diff:.3f}**.")
         else:
-            st.error(f"📉 Este lote de notas derrubaria sua média em **{abs(variacao):.3f}**.")
+            st.error(f"📉 Este lote derrubaria sua média em **{abs(v_diff):.3f}**.")
 
-st.caption("Nota: O cálculo acima projeta o impacto real nas casas decimais considerando o 'peso' das avaliações anteriores.")
-
+st.caption("Cálculo baseado na base de 6.084 avaliações atuais.")
