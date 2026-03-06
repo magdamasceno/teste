@@ -1,61 +1,60 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Calculadora de Médias 6 Meses", layout="wide")
+st.set_page_config(page_title="Calculadora 6 Meses", layout="wide")
 
-# Estilo para parecer uma planilha limpa
-st.markdown("""
-    <style>
-        .stApp { background-color: #f4f7f6; }
-        h1, h2, h3 { color: #2c3e50 !important; }
-        .stDataFrame { border: 1px solid #dcdde1; }
-    </style>
-""", unsafe_allow_html=True)
+st.title("📊 Calculadora de Indicadores - Últimos 6 Meses")
 
-st.title("📊 Calculadora de Média (Últimos 6 Meses)")
-st.write("Insira os dados brutos de cada mês para calcular as porcentagens e médias automáticas.")
+st.write("Preencha os dados mensais para calcular automaticamente as médias dos últimos 6 meses.")
 
-# 1. CRIAR TABELA EM BRANCO (6 linhas para 6 meses)
-# As colunas são baseadas na sua foto do Excel
-colunas = ["Mês", "Nota Consumidor", "Total Avaliações", "Total Solução", "Total Voltaria"]
-df_vazio = pd.DataFrame([{"Mês": "", "Nota Consumidor": 0.0, "Total Avaliações": 0, "Total Solução": 0, "Total Voltaria": 0} for _ in range(6)])
+# Estrutura da tabela
+colunas = [
+    "Mês",
+    "Nota Consumidor",
+    "Total Avaliações",
+    "Total Solução",
+    "Total Voltaria"
+]
 
-# 2. EDITOR DE TABELA (ESTILO EXCEL)
-st.subheader("📝 Preenchimento de Dados")
-df_editado = st.data_editor(
-    df_vazio,
+# Tabela inicial com 6 linhas
+dados_iniciais = pd.DataFrame({
+    "Mês": ["", "", "", "", "", ""],
+    "Nota Consumidor": [0.0]*6,
+    "Total Avaliações": [0]*6,
+    "Total Solução": [0]*6,
+    "Total Voltaria": [0]*6
+})
+
+st.subheader("📝 Inserção de Dados")
+
+df = st.data_editor(
+    dados_iniciais,
+    num_rows="fixed",
     use_container_width=True,
-    num_rows="fixed", # Trava em 6 meses
-    key="planilha_6_meses",
     column_config={
-        "Mês": st.column_config.TextColumn("Mês (Ex: Jan, Fev...)"),
+        "Mês": st.column_config.TextColumn("Mês"),
         "Nota Consumidor": st.column_config.NumberColumn("Nota Consumidor", format="%.2f"),
-        "Total Avaliações": st.column_config.NumberColumn("Qtd. Avaliações"),
-        "Total Solução": st.column_config.NumberColumn("Qtd. Soluções"),
-        "Total Voltaria": st.column_config.NumberColumn("Qtd. Voltariam")
+        "Total Avaliações": st.column_config.NumberColumn("Total Avaliações"),
+        "Total Solução": st.column_config.NumberColumn("Total Solução"),
+        "Total Voltaria": st.column_config.NumberColumn("Total Voltaria")
     }
 )
 
-# 3. CÁLCULOS AUTOMÁTICOS (ESTILO EXCEL)
-if df_editado["Total Avaliações"].sum() > 0:
-    # Calculando as porcentagens individuais de cada linha (Mês)
-    df_calculado = df_editado.copy()
-    
-    # Evita divisão por zero
-    mask = df_calculado["Total Avaliações"] > 0
-    df_calculado["% Solução"] = 0.0
-    df_calculado["% Voltaria"] = 0.0
-    
-    df_calculado.loc[mask, "% Solução"] = (df_calculado["Total Solução"] / df_calculado["Total Avaliações"]) * 100
-    df_calculado.loc[mask, "% Voltaria"] = (df_calculado["Total Voltaria"] / df_calculado["Total Avaliações"]) * 100
+# Remover linhas vazias
+df_validos = df[df["Total Avaliações"] > 0]
 
-    # 4. EXIBIÇÃO DOS RESULTADOS POR MÊS
-    st.divider()
-    st.subheader("📈 Resultado Processado")
-    
-    # Formatação para exibição
+if len(df_validos) > 0:
+
+    df_calc = df_validos.copy()
+
+    # Cálculo das porcentagens mensais
+    df_calc["% Solução"] = (df_calc["Total Solução"] / df_calc["Total Avaliações"]) * 100
+    df_calc["% Voltaria"] = (df_calc["Total Voltaria"] / df_calc["Total Avaliações"]) * 100
+
+    st.subheader("📈 Indicadores por Mês")
+
     st.dataframe(
-        df_calculado.style.format({
+        df_calc.style.format({
             "Nota Consumidor": "{:.2f}",
             "% Solução": "{:.1f}%",
             "% Voltaria": "{:.1f}%"
@@ -63,21 +62,37 @@ if df_editado["Total Avaliações"].sum() > 0:
         use_container_width=True
     )
 
-    # 5. MÉDIA FINAL DOS 6 MESES
-    total_av = df_calculado["Total Avaliações"].sum()
-    total_sol = df_calculado["Total Solução"].sum()
-    total_vol = df_calculado["Total Voltaria"].sum()
-    
-    # Média ponderada da nota (Nota * Avaliações / Total Avaliações)
-    media_nota = (df_calculado["Nota Consumidor"] * df_calculado["Total Avaliações"]).sum() / total_av
-    perc_sol_geral = (total_sol / total_av) * 100
-    perc_vol_geral = (total_vol / total_av) * 100
+    # Totais gerais
+    total_avaliacoes = df_calc["Total Avaliações"].sum()
+    total_solucoes = df_calc["Total Solução"].sum()
+    total_voltaria = df_calc["Total Voltaria"].sum()
 
-    st.divider()
+    # Média das notas (igual Excel)
+    media_notas = df_calc["Nota Consumidor"].mean()
+
+    # Percentuais gerais
+    perc_solucao = (total_solucoes / total_avaliacoes) * 100
+    perc_voltaria = (total_voltaria / total_avaliacoes) * 100
+
+    st.subheader("📊 Resultado Geral (6 meses)")
+
     col1, col2, col3 = st.columns(3)
-    col1.metric("Média das Notas (6m)", f"{media_nota:.2f}")
-    col2.metric("% Solução Geral (6m)", f"{perc_sol_geral:.1f}%")
-    col3.metric("% Voltaria Geral (6m)", f"{perc_vol_geral:.1f}%")
+
+    col1.metric(
+        "Média das Notas",
+        f"{media_notas:.2f}"
+    )
+
+    col2.metric(
+        "% Solução",
+        f"{perc_solucao:.1f}%"
+    )
+
+    col3.metric(
+        "% Voltaria",
+        f"{perc_voltaria:.1f}%"
+    )
 
 else:
-    st.warning("Aguardando o preenchimento dos dados para calcular as médias.")
+
+    st.info("Preencha os dados para visualizar os resultados.")
