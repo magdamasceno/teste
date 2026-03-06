@@ -14,7 +14,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Calculadora de Média - Sem Erro de Digitação")
+st.title("📊 Calculadora de Média - Magda")
 
 # Sidebar
 with st.sidebar:
