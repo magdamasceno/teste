@@ -11,35 +11,38 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Calculadora de Média - Foco em Digitação")
+st.title("📊 Calculadora de Média - Com Lista Suspensa")
 
 # Sidebar
 with st.sidebar:
     st.header("⚙️ Configuração")
     ir_geral = st.number_input("Índice de Resposta (%)", value=100.0, step=0.1)
 
+# Lista de meses para a lista suspensa
+opcoes_meses = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", 
+                "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"]
+
 # Inicializa tabela
 if "dados_planilha" not in st.session_state:
     st.session_state.dados_planilha = pd.DataFrame({
-        "Mês": ["SET", "OUT", "NOV", "DEZ", "JAN", "FEV"],
+        "Mês": ["SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO", "JANEIRO", "FEVEREIRO"],
         "Nota": [0.0]*6,
         "Avaliações": [0]*6,
         "Resolvidos": [0]*6,
         "Voltariam": [0]*6
     })
 
-# Editor de Dados OTIMIZADO
-# O segredo para sumir a lista suspensa é o TextColumn abaixo
+# Editor de Dados com SELECTBOX (Lista Suspensa)
 df_editado = st.data_editor(
     st.session_state.dados_planilha,
     num_rows="fixed",
     use_container_width=True,
     column_config={
-        "Mês": st.column_config.TextColumn(
-            "Mês", 
-            help="Digite o nome do mês",
-            max_chars=20,
-            validate=None  # Isso remove a lista suspensa automática
+        "Mês": st.column_config.SelectboxColumn(
+            "Mês",
+            help="Selecione o mês",
+            options=opcoes_meses, # Aqui define a lista suspensa
+            required=True,
         ),
         "Nota": st.column_config.NumberColumn("Nota", format="%.2f", min_value=0.0, max_value=10.0),
         "Avaliações": st.column_config.NumberColumn("Avaliações", step=1),
@@ -54,13 +57,17 @@ st.markdown("---")
 if st.button("🚀 CALCULAR MÉDIA SIMPLES", use_container_width=True):
     # Lógica de Média Simples (Igual ao Excel)
     res = df_editado.copy()
+    
+    # Cálculo das porcentagens individuais de cada mês
     res["% Solução"] = (res["Resolvidos"] / res["Avaliações"] * 100).fillna(0)
     res["% Voltaria"] = (res["Voltariam"] / res["Avaliações"] * 100).fillna(0)
 
+    # Tirando a média simples das porcentagens e da nota
     mn_simples = res["Nota"].mean()
     is_simples = res["% Solução"].mean()
     inn_simples = res["% Voltaria"].mean()
 
+    # AR Final (Fórmula Reclame AQUI)
     ar_final = ((ir_geral * 2) + (mn_simples * 10 * 3) + (is_simples * 3) + (inn_simples * 2)) / 100
 
     st.subheader(f"🏆 Resultado Final: AR {ar_final:.2f}")
