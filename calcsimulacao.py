@@ -1,98 +1,127 @@
-import streamlit as st
+Import streamlit as st
+
 import pandas as pd
 
-st.set_page_config(page_title="Calculadora 6 Meses", layout="wide")
 
-st.title("📊 Calculadora de Indicadores - Últimos 6 Meses")
 
-st.write("Preencha os dados mensais para calcular automaticamente as médias dos últimos 6 meses.")
+st.set_page_config(page_title="Média Últimos 6 Meses", layout="wide")
 
-# Estrutura da tabela
-colunas = [
-    "Mês",
-    "Nota Consumidor",
-    "Total Avaliações",
-    "Total Solução",
-    "Total Voltaria"
-]
 
-# Tabela inicial com 6 linhas
-dados_iniciais = pd.DataFrame({
-    "Mês": ["", "", "", "", "", ""],
-    "Nota Consumidor": [0.0]*6,
-    "Total Avaliações": [0]*6,
-    "Total Solução": [0]*6,
-    "Total Voltaria": [0]*6
+
+st.title("📊 Calculadora de Média - Últimos 6 Meses")
+
+
+
+st.write("Preencha os dados. Você pode alterar os meses livremente.")
+
+
+
+# Criar tabela apenas uma vez
+
+if "tabela" not in st.session_state:
+
+st.session_state.tabela = pd.DataFrame({
+
+"Mês": ["", "", "", "", "", ""],
+
+"Nota Consumidor": [None]*6,
+
+"Total Avaliações": [None]*6,
+
+"Total Solução": [None]*6,
+
+"Total Voltaria": [None]*6
+
 })
 
-st.subheader("📝 Inserção de Dados")
+
+
+st.subheader("📝 Dados")
+
+
 
 df = st.data_editor(
-    dados_iniciais,
-    num_rows="fixed",
-    use_container_width=True,
-    column_config={
-        "Mês": st.column_config.TextColumn("Mês"),
-        "Nota Consumidor": st.column_config.NumberColumn("Nota Consumidor", format="%.2f"),
-        "Total Avaliações": st.column_config.NumberColumn("Total Avaliações"),
-        "Total Solução": st.column_config.NumberColumn("Total Solução"),
-        "Total Voltaria": st.column_config.NumberColumn("Total Voltaria")
-    }
+
+st.session_state.tabela,
+
+num_rows="fixed",
+
+use_container_width=True,
+
+column_config={
+
+"Mês": st.column_config.TextColumn("Mês"),
+
+"Nota Consumidor": st.column_config.NumberColumn("Nota", format="%.2f"),
+
+"Total Avaliações": st.column_config.NumberColumn("Avaliações"),
+
+"Total Solução": st.column_config.NumberColumn("Soluções"),
+
+"Total Voltaria": st.column_config.NumberColumn("Voltariam")
+
+}
+
 )
 
-# Remover linhas vazias
-df_validos = df[df["Total Avaliações"] > 0]
+
+
+# salvar alterações
+
+st.session_state.tabela = df
+
+
+
+# considerar apenas linhas preenchidas
+
+df_validos = df.dropna(subset=["Nota Consumidor"])
+
+
 
 if len(df_validos) > 0:
 
-    df_calc = df_validos.copy()
 
-    # Cálculo das porcentagens mensais
-    df_calc["% Solução"] = (df_calc["Total Solução"] / df_calc["Total Avaliações"]) * 100
-    df_calc["% Voltaria"] = (df_calc["Total Voltaria"] / df_calc["Total Avaliações"]) * 100
 
-    st.subheader("📈 Indicadores por Mês")
+# média simples das notas
 
-    st.dataframe(
-        df_calc.style.format({
-            "Nota Consumidor": "{:.2f}",
-            "% Solução": "{:.1f}%",
-            "% Voltaria": "{:.1f}%"
-        }),
-        use_container_width=True
-    )
+media_notas = df_validos["Nota Consumidor"].mean()
 
-    # Totais gerais
-    total_avaliacoes = df_calc["Total Avaliações"].sum()
-    total_solucoes = df_calc["Total Solução"].sum()
-    total_voltaria = df_calc["Total Voltaria"].sum()
 
-    # Média das notas (igual Excel)
-    media_notas = df_calc["Nota Consumidor"].mean()
 
-    # Percentuais gerais
-    perc_solucao = (total_solucoes / total_avaliacoes) * 100
-    perc_voltaria = (total_voltaria / total_avaliacoes) * 100
+# totais
 
-    st.subheader("📊 Resultado Geral (6 meses)")
+total_av = df_validos["Total Avaliações"].fillna(0).sum()
 
-    col1, col2, col3 = st.columns(3)
+total_sol = df_validos["Total Solução"].fillna(0).sum()
 
-    col1.metric(
-        "Média das Notas",
-        f"{media_notas:.2f}"
-    )
+total_vol = df_validos["Total Voltaria"].fillna(0).sum()
 
-    col2.metric(
-        "% Solução",
-        f"{perc_solucao:.1f}%"
-    )
 
-    col3.metric(
-        "% Voltaria",
-        f"{perc_voltaria:.1f}%"
-    )
+
+perc_sol = (total_sol / total_av)*100 if total_av > 0 else 0
+
+perc_vol = (total_vol / total_av)*100 if total_av > 0 else 0
+
+
+
+st.divider()
+
+st.subheader("📊 Resultado")
+
+
+
+col1, col2, col3 = st.columns(3)
+
+
+
+col1.metric("Média das Notas", f"{media_notas:.2f}")
+
+col2.metric("% Solução", f"{perc_sol:.1f}%")
+
+col3.metric("% Voltaria", f"{perc_vol:.1f}%")
+
+
 
 else:
 
-    st.info("Preencha os dados para visualizar os resultados.")
+st.info("Preencha as notas para calcular a média.")
