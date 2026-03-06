@@ -1,89 +1,83 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Calculadora RA - Pro", layout="wide")
+st.set_page_config(page_title="Calculadora de Médias 6 Meses", layout="wide")
 
-# Estilo para destacar as linhas e colunas
+# Estilo para parecer uma planilha limpa
 st.markdown("""
     <style>
-        .stApp { background-color: #111b15; }
-        h1, h2, h3 { color: #3cba54 !important; }
-        .stDataFrame { background-color: white; border-radius: 10px; }
+        .stApp { background-color: #f4f7f6; }
+        h1, h2, h3 { color: #2c3e50 !important; }
+        .stDataFrame { border: 1px solid #dcdde1; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Calculadora de Performance Mensal")
-st.subheader("Controle por Mês (Cálculo Automático de Índices)")
+st.title("📊 Calculadora de Média (Últimos 6 Meses)")
+st.write("Insira os dados brutos de cada mês para calcular as porcentagens e médias automáticas.")
 
-# --- DADOS GERAIS (SIDEBAR) ---
-with st.sidebar:
-    st.header("⚙️ Parâmetros Fixos")
-    total_reclamacoes = st.number_input("Total Reclamações (Painel)", value=12774)
-    total_respostas = st.number_input("Total Respostas (Painel)", value=12509)
-    ir_geral = (total_respostas / total_reclamacoes) * 100 if total_reclamacoes > 0 else 0
-    st.info(f"Índice de Resposta Atual: {ir_geral:.1f}%")
+# 1. CRIAR TABELA EM BRANCO (6 linhas para 6 meses)
+# As colunas são baseadas na sua foto do Excel
+colunas = ["Mês", "Nota Consumidor", "Total Avaliações", "Total Solução", "Total Voltaria"]
+df_vazio = pd.DataFrame([{"Mês": "", "Nota Consumidor": 0.0, "Total Avaliações": 0, "Total Solução": 0, "Total Voltaria": 0} for _ in range(6)])
 
-# --- TABELA INTERATIVA ---
-st.info("Preencha a 'Qtd Solução' e 'Qtd Voltaria' para ver a porcentagem do mês aparecer na tabela abaixo.")
-
-# Dados iniciais baseados na sua foto
-dados_base = [
-    {"Mês": "SETEMBRO", "Nota": 7.27, "Avaliações": 1129, "Qtd Solução": 946, "Qtd Voltaria": 889},
-    {"Mês": "OUTUBRO", "Nota": 7.37, "Avaliações": 1083, "Qtd Solução": 952, "Qtd Voltaria": 899},
-    {"Mês": "NOVEMBRO", "Nota": 7.42, "Avaliações": 1542, "Qtd Solução": 1342, "Qtd Voltaria": 1277},
-    {"Mês": "DEZEMBRO", "Nota": 7.44, "Avaliações": 1120, "Qtd Solução": 961, "Qtd Voltaria": 922},
-]
-
-df_input = st.data_editor(
-    pd.DataFrame(dados_base),
-    num_rows="dynamic",
+# 2. EDITOR DE TABELA (ESTILO EXCEL)
+st.subheader("📝 Preenchimento de Dados")
+df_editado = st.data_editor(
+    df_vazio,
     use_container_width=True,
-    key="editor_v2"
+    num_rows="fixed", # Trava em 6 meses
+    key="planilha_6_meses",
+    column_config={
+        "Mês": st.column_config.TextColumn("Mês (Ex: Jan, Fev...)"),
+        "Nota Consumidor": st.column_config.NumberColumn("Nota Consumidor", format="%.2f"),
+        "Total Avaliações": st.column_config.NumberColumn("Qtd. Avaliações"),
+        "Total Solução": st.column_config.NumberColumn("Qtd. Soluções"),
+        "Total Voltaria": st.column_config.NumberColumn("Qtd. Voltariam")
+    }
 )
 
-# --- CÁLCULOS POR LINHA (MENSAL) ---
-if not df_input.empty:
-    # Criamos colunas calculadas para mostrar as porcentagens mensais como no seu Excel
-    df_exibicao = df_input.copy()
+# 3. CÁLCULOS AUTOMÁTICOS (ESTILO EXCEL)
+if df_editado["Total Avaliações"].sum() > 0:
+    # Calculando as porcentagens individuais de cada linha (Mês)
+    df_calculado = df_editado.copy()
     
-    # Cálculo das porcentagens de cada mês
-    df_exibicao["% Solução Mês"] = (df_exibicao["Qtd Solução"] / df_exibicao["Avaliações"] * 100).fillna(0)
-    df_exibicao["% Voltaria Mês"] = (df_exibicao["Qtd Voltaria"] / df_exibicao["Avaliações"] * 100).fillna(0)
+    # Evita divisão por zero
+    mask = df_calculado["Total Avaliações"] > 0
+    df_calculado["% Solução"] = 0.0
+    df_calculado["% Voltaria"] = 0.0
+    
+    df_calculado.loc[mask, "% Solução"] = (df_calculado["Total Solução"] / df_calculado["Total Avaliações"]) * 100
+    df_calculado.loc[mask, "% Voltaria"] = (df_calculado["Total Voltaria"] / df_calculado["Total Avaliações"]) * 100
 
-    # Exibe a tabela com os cálculos mensais
-    st.write("### ✅ Resultado Detalhado por Mês")
-    # Formatando para mostrar com % e 1 casa decimal
+    # 4. EXIBIÇÃO DOS RESULTADOS POR MÊS
+    st.divider()
+    st.subheader("📈 Resultado Processado")
+    
+    # Formatação para exibição
     st.dataframe(
-        df_exibicao.style.format({
-            "% Solução Mês": "{:.1f}%",
-            "% Voltaria Mês": "{:.1f}%",
-            "Nota": "{:.2f}"
+        df_calculado.style.format({
+            "Nota Consumidor": "{:.2f}",
+            "% Solução": "{:.1f}%",
+            "% Voltaria": "{:.1f}%"
         }),
         use_container_width=True
     )
 
-    # --- CÁLCULO DO TOTAL ACUMULADO (MÉDIA PONDERADA) ---
-    t_av = df_exibicao["Avaliações"].sum()
-    t_sol = df_exibicao["Qtd Solução"].sum()
-    t_vol = df_exibicao["Qtd Voltaria"].sum()
+    # 5. MÉDIA FINAL DOS 6 MESES
+    total_av = df_calculado["Total Avaliações"].sum()
+    total_sol = df_calculado["Total Solução"].sum()
+    total_vol = df_calculado["Total Voltaria"].sum()
     
-    # Média das notas ponderada pelo volume de avaliações de cada mês
-    mn_final = (df_exibicao["Nota"] * df_exibicao["Avaliações"]).sum() / t_av if t_av > 0 else 0
-    is_final = (t_sol / t_av * 100) if t_av > 0 else 0
-    inn_final = (t_vol / t_av * 100) if t_av > 0 else 0
-    
-    # Fórmula Final AR
-    ar_score = ((ir_geral * 2) + (mn_final * 10 * 3) + (is_final * 3) + (inn_final * 2)) / 100
+    # Média ponderada da nota (Nota * Avaliações / Total Avaliações)
+    media_nota = (df_calculado["Nota Consumidor"] * df_calculado["Total Avaliações"]).sum() / total_av
+    perc_sol_geral = (total_sol / total_av) * 100
+    perc_vol_geral = (total_vol / total_av) * 100
 
-    # --- DASHBOARD DE RESULTADOS ---
     st.divider()
-    res1, res2, res3, res4 = st.columns(4)
-    res1.metric("Nota Consumidor (Média)", f"{mn_final:.2f}")
-    res2.metric("Índice Solução Total", f"{is_final:.1f}%")
-    res3.metric("Voltaria Negócio Total", f"{inn_final:.1f}%")
-    res4.metric("AR FINAL ESTIMADO", f"{ar_score:.2f}")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Média das Notas (6m)", f"{media_nota:.2f}")
+    col2.metric("% Solução Geral (6m)", f"{perc_sol_geral:.1f}%")
+    col3.metric("% Voltaria Geral (6m)", f"{perc_vol_geral:.1f}%")
 
-    if ar_score >= 8:
-        st.success("🎯 Com esses números, sua reputação é **RA1000**!")
-    elif ar_score >= 7:
-        st.info("🟢 Com esses números, sua reputação é **ÓTIMO**.")
+else:
+    st.warning("Aguardando o preenchimento dos dados para calcular as médias.")
