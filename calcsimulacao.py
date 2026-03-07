@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Relatório RA Final", layout="wide")
+st.set_page_config(page_title="Relatório Mensal RA", layout="wide")
 
-# Estilo visual
+# Estilo visual que você aprovou
 st.markdown("""
     <style>
         .stApp { background-color: #111b15; }
@@ -12,71 +12,81 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Relatório RA - Lógica de Acumulado")
+st.title("📊 Gerador de Relatório Mensal - Média Ponderada")
 
 # Sidebar
 with st.sidebar:
-    st.header("⚙️ Painel Geral")
-    total_reclamacoes = st.number_input("Total de Reclamações (Painel)", value=12774)
-    total_respostas = st.number_input("Total de Respostas (Painel)", value=12509)
+    st.header("⚙️ Parâmetros do Painel")
+    total_reclamacoes = st.number_input("Total Reclamações", value=12774)
+    total_respostas = st.number_input("Total Respostas", value=12509)
     ir_geral = (total_respostas / total_reclamacoes) * 100 if total_reclamacoes > 0 else 0
     st.info(f"Índice de Resposta: {ir_geral:.1f}%")
 
-st.subheader("1️⃣ Inserção de Dados Mensais")
+st.subheader("1️⃣ Entrada de Dados Brutos")
 
+# Inicializa os dados (com os valores do seu print)
 if "dados_brutos" not in st.session_state:
     st.session_state.dados_brutos = pd.DataFrame({
-        "Mês": ["SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO", "JANEIRO", "FEVEREIRO"],
-        "Nota": [7.27, 7.37, 7.42, 7.44, 7.25, 7.72],
-        "Avaliações": [1129, 1083, 1542, 1120, 1144, 711],
-        "Resolvidos": [946, 952, 1342, 961, 992, 619],
-        "Voltariam": [889, 899, 1277, 922, 917, 590]
+        "Mês": ["OUTUBRO", "NOVEMBRO", "DEZEMBRO", "JANEIRO", "FEVEREIRO", "MARÇO"],
+        "Nota": [7.38, 7.42, 7.44, 7.25, 7.72, 8.00],
+        "Avaliações": [1086, 1542, 1129, 1144, 711, 68],
+        "Resolvidos": [952, 1342, 981, 992, 619, 61],
+        "Voltariam": [899, 1277, 930, 917, 590, 57]
     })
 
+opcoes_meses = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", 
+                "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"]
+
+# EDITOR DE DADOS COM LISTA SUSPENSA
 df_digitacao = st.data_editor(
     st.session_state.dados_brutos,
     num_rows="fixed",
     use_container_width=True,
-    key="editor_final_v3"
+    key="editor_fiel",
+    column_config={
+        "Mês": st.column_config.SelectboxColumn("Mês", options=opcoes_meses),
+        "Nota": st.column_config.NumberColumn("Nota Consumidor", format="%.2f"),
+    }
 )
+st.session_state.dados_brutos = df_digitacao
 
-if st.button("📋 GERAR RELATÓRIO E CALCULAR AR", use_container_width=True):
-    
-    # 1. Totais Acumulados (A base do seu cálculo que "sempre bateu")
-    total_av = df_digitacao["Avaliações"].sum()
-    total_res = df_digitacao["Resolvidos"].sum()
-    total_vol = df_digitacao["Voltariam"].sum()
-    
-    # 2. Índices Globais (Como você faz no Excel)
-    # Aqui a ponderação acontece naturalmente pelo volume total
-    is_global = (total_res / total_av) * 100 if total_av > 0 else 0
-    inn_global = (total_vol / total_av) * 100 if total_av > 0 else 0
-    
-    # Média Ponderada da Nota Consumidor
-    # (Soma de todas as notas multiplicadas pelas suas avaliações) / Total de avaliações
-    mn_global = (df_digitacao["Nota"] * df_digitacao["Avaliações"]).sum() / total_av if total_av > 0 else 0
+st.markdown("---")
 
-    # 3. Fórmula AR Oficial
-    ar_final = ((ir_geral * 2) + (mn_global * 10 * 3) + (is_global * 3) + (inn_global * 2)) / 100
+if st.button("📋 GERAR RELATÓRIO MENSAL E CALCULAR AR", use_container_width=True):
+    
+    # 1. Relatório de Performance (Cálculo individual por mês para o relatório)
+    relatorio = df_digitacao.copy()
+    relatorio["% Solução"] = (relatorio["Resolvidos"] / relatorio["Avaliações"] * 100)
+    relatorio["% Voltaria"] = (relatorio["Voltariam"] / relatorio["Avaliações"] * 100)
+    
+    st.subheader("2️⃣ Relatório de Performance por Mês")
+    st.dataframe(
+        relatorio.style.format({
+            "% Solução": "{:.1f}%",
+            "% Voltaria": "{:.1f}%",
+            "Nota": "{:.2f}"
+        }),
+        use_container_width=True
+    )
 
-    # --- EXIBIÇÃO ---
+    # 2. LÓGICA DE CÁLCULO FINAL (Soma tudo e divide)
+    total_av_geral = df_digitacao["Avaliações"].sum()
+    
+    # IS e INN: Soma de todos os resolvidos / Soma de todas as avaliações
+    is_total = (df_digitacao["Resolvidos"].sum() / total_av_geral) * 100 if total_av_geral > 0 else 0
+    inn_total = (df_digitacao["Voltariam"].sum() / total_av_geral) * 100 if total_av_geral > 0 else 0
+    
+    # MN: Nota ponderada (única que exige multiplicar pela avaliação do mês antes de somar)
+    mn_ponderada = (df_digitacao["Nota"] * df_digitacao["Avaliações"]).sum() / total_av_geral if total_av_geral > 0 else 0
+
+    # 3. Fórmula Oficial do AR
+    ar_final = ((ir_geral * 2) + (mn_ponderada * 10 * 3) + (is_total * 3) + (inn_total * 2)) / 100
+
     st.divider()
-    st.subheader(f"📊 Relatório de Performance: AR {ar_final:.2f}")
+    st.subheader(f"3️⃣ Resultado Final: AR {ar_final:.2f}")
     
-    # Relatório Mensal para conferência
-    relatorio_mensal = df_digitacao.copy()
-    relatorio_mensal["% Solução Mês"] = (relatorio_mensal["Resolvidos"] / relatorio_mensal["Avaliações"] * 100)
-    relatorio_mensal["% Voltaria Mês"] = (relatorio_mensal["Voltariam"] / relatorio_mensal["Avaliações"] * 100)
-    
-    st.dataframe(relatorio_mensal.style.format({
-        "% Solução Mês": "{:.1f}%",
-        "% Voltaria Mês": "{:.1f}%",
-        "Nota": "{:.2f}"
-    }), use_container_width=True)
-
-    st.markdown("### 🏆 Consolidação do Período")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Nota Consumidor (MN)", f"{mn_global:.2f}")
-    c2.metric("Índice Solução (IS)", f"{is_global:.1f}%")
-    c3.metric("Voltaria Negócio (INN)", f"{inn_global:.1f}%")
+    c1.metric("Nota (MN)", f"{mn_ponderada:.2f}")
+    c2.metric("Solução (IS)", f"{is_total:.1f}%")
+    c3.metric("Voltaria (INN)", f"{inn_total:.1f}%")
     c4.metric("SCORE FINAL (AR)", f"{ar_final:.2f}")
