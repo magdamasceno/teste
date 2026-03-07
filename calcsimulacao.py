@@ -2,9 +2,9 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-st.set_page_config(page_title="Relatório RA - Oficial", layout="wide")
+st.set_page_config(page_title="Calculadora RA - Final", layout="wide")
 
-# Estilo Visual
+# Estilo Visual para o Tema Escuro
 st.markdown("""
     <style>
         .stApp { background-color: #111b15; }
@@ -15,7 +15,7 @@ st.markdown("""
 
 st.title("📊 Calculadora RA - Dados Automáticos")
 
-# Sidebar com os valores fixos do seu painel
+# Sidebar com valores fixos para bater o Score Final
 with st.sidebar:
     st.header("⚙️ Painel Geral")
     total_reclamacoes = st.number_input("Total Reclamações", value=12774)
@@ -28,9 +28,9 @@ st.subheader("1️⃣ Conferência de Dados Brutos")
 opcoes_meses = ["JANEIRO", "FEVEREIRO", "MARÇO", "ABRIL", "MAIO", "JUNHO", 
                 "JULHO", "AGOSTO", "SETEMBRO", "OUTUBRO", "NOVEMBRO", "DEZEMBRO"]
 
-# Dados pré-carregados para você não precisar digitar
-if "dados_fixos" not in st.session_state:
-    st.session_state.dados_fixos = pd.DataFrame({
+# Carregamento automático dos dados das imagens
+if "dados_automaticos" not in st.session_state:
+    st.session_state.dados_automaticos = pd.DataFrame({
         "Mês": ["OUTUBRO", "NOVEMBRO", "DEZEMBRO", "JANEIRO", "FEVEREIRO", "MARÇO"],
         "Nota Consumidor": [7.38, 7.42, 7.44, 7.25, 7.72, 8.00],
         "Avaliações": [1086, 1542, 1129, 1144, 711, 68],
@@ -40,10 +40,10 @@ if "dados_fixos" not in st.session_state:
 
 # Editor com Lista Suspensa
 df_input = st.data_editor(
-    st.session_state.dados_fixos,
+    st.session_state.dados_automaticos,
     num_rows="fixed",
     use_container_width=True,
-    key="editor_vfinal",
+    key="editor_fiel_v5",
     column_config={
         "Mês": st.column_config.SelectboxColumn("Mês", options=opcoes_meses),
         "Nota Consumidor": st.column_config.NumberColumn(format="%.2f"),
@@ -56,13 +56,13 @@ if st.button("🚀 GERAR RELATÓRIO E CALCULAR AR", use_container_width=True):
     
     df_calc = df_input.copy()
     
-    # Lógica para truncar em 1 casa decimal (87,66% -> 87,6%)
+    # Lógica para truncar (Ex: 87,66% vira 87,6%) para bater com seu manual
     df_calc["% Solução"] = np.floor((df_calc["Resolvidos"] / df_calc["Avaliações"] * 1000)) / 10
     df_calc["% Voltaria"] = np.floor((df_calc["Voltariam"] / df_calc["Avaliações"] * 1000)) / 10
 
     st.subheader("2️⃣ Relatório de Performance Mensal")
     
-    # Formatação corrigida (parênteses fechados corretamente)
+    # Exibição corrigida do DataFrame
     st.dataframe(
         df_calc.style.format({
             "% Solução": "{:.1f}%",
@@ -72,19 +72,19 @@ if st.button("🚀 GERAR RELATÓRIO E CALCULAR AR", use_container_width=True):
         use_container_width=True
     )
 
-    # CÁLCULOS TOTAIS
-    soma_av = df_calc["Avaliações"].sum()
-    soma_res = df_calc["Resolvidos"].sum()
-    soma_vol = df_calc["Voltariam"].sum()
+    # CÁLCULOS TOTAIS (Média Ponderada e Soma Bruta)
+    total_av = df_calc["Avaliações"].sum()
+    total_res = df_calc["Resolvidos"].sum()
+    total_vol = df_calc["Voltariam"].sum()
 
-    # IS e INN: Soma Bruta / Soma Bruta
-    is_global = (soma_res / soma_av) * 100 if soma_av > 0 else 0
-    inn_global = (soma_vol / soma_av) * 100 if soma_av > 0 else 0
+    # Índices Globais (Soma Bruta / Soma Bruta)
+    is_global = (total_res / total_av) * 100 if total_av > 0 else 0
+    inn_global = (total_vol / total_av) * 100 if total_av > 0 else 0
     
-    # MN: Média Ponderada
-    mn_ponderada = (df_calc["Nota Consumidor"] * df_calc["Avaliações"]).sum() / soma_av if soma_av > 0 else 0
+    # Nota Ponderada (MN)
+    mn_ponderada = (df_calc["Nota Consumidor"] * df_calc["Avaliações"]).sum() / total_av if total_av > 0 else 0
 
-    # SCORE FINAL (AR)
+    # AR Final
     ar_final = ((ir_geral * 2) + (mn_ponderada * 10 * 3) + (is_global * 3) + (inn_global * 2)) / 100
 
     st.divider()
