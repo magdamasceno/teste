@@ -13,7 +13,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("📊 Calculadora RA - Dados Automáticos")
+st.title("📊 Calculadora RA - MAGDA")
 
 # Sidebar com valores fixos para bater o Score Final
 with st.sidebar:
